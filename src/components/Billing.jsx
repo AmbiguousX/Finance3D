@@ -14,13 +14,10 @@ const Billing = () => (
 
     <div className={layout.sectionInfo}>
       <h2 className={styles.heading2}>
-        Easily control your <br className="sm:block hidden" /> billing &
-        invoicing
+        Add A New Dimension <br className="sm:block hidden" /> To Your Data
       </h2>
       <p className={`${styles.paragraph} max-w-[470px] mt-5`}>
-        Elit enim sed massa etiam. Mauris eu adipiscing ultrices ametodio
-        aenean neque. Fusce ipsum orci rhoncus aliporttitor integer platea
-        placerat.
+        Creating 3D charts increases the amount of information on the screen that you can view at once. 2D charting is a thing of the past.
       </p>
 
       <div className="flex flex-row flex-wrap sm:mt-10 mt-6">
