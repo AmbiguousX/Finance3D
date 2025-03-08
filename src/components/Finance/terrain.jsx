@@ -10,9 +10,13 @@ const TerrainShader = ({ onHoverData }) => {
     const GRID_SIZE = 128;
     const CANVAS_HEIGHT = 550;
     const MIN_CAMERA_DISTANCE = 30;
-    const MAX_CAMERA_DISTANCE = 100;
+    const MAX_CAMERA_DISTANCE = 150; // Increased max zoom out
     const INITIAL_CAMERA_DISTANCE = 50;
     const INITIAL_CAMERA_ELEVATION = 45;
+
+    // Mobile specific constants
+    const MOBILE_MAX_CAMERA_DISTANCE = 180; // Even more zoom out for mobile
+    const MOBILE_INITIAL_CAMERA_DISTANCE = 80; // Start more zoomed out on mobile
 
     // Refs
     const canvasRef = useRef(null);
@@ -32,6 +36,12 @@ const TerrainShader = ({ onHoverData }) => {
     });
     const controlsRef = useRef(null); // Add ref for controls
     const interactingWithTerrainRef = useRef(false); // Track if user is interacting with terrain
+
+    // Helper function to detect mobile devices - defined at the component level
+    const isMobileDevice = () => {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+            (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    };
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -124,10 +134,15 @@ const TerrainShader = ({ onHoverData }) => {
 
         const setupCamera = (width) => {
             const camera = new THREE.PerspectiveCamera(45, width / CANVAS_HEIGHT, 0.1, 1000);
+
+            // Set different initial camera distance for mobile
+            const isMobile = isMobileDevice();
+            const initialDistance = isMobile ? MOBILE_INITIAL_CAMERA_DISTANCE : INITIAL_CAMERA_DISTANCE;
+
             camera.position.set(
-                -INITIAL_CAMERA_DISTANCE,
+                -initialDistance,
                 INITIAL_CAMERA_ELEVATION,
-                INITIAL_CAMERA_DISTANCE
+                initialDistance
             );
             camera.lookAt(0, -HEIGHT_SCALE / 3, 0);
             cameraRef.current = camera;
@@ -139,9 +154,21 @@ const TerrainShader = ({ onHoverData }) => {
                 antialias: true,
                 alpha: true
             });
-            renderer.setSize(width, CANVAS_HEIGHT);
+
+            // Adjust width for mobile devices to 85% of container width
+            const isMobile = isMobileDevice();
+            const renderWidth = isMobile ? width * 0.85 : width;
+
+            renderer.setSize(renderWidth, CANVAS_HEIGHT);
             canvasRef.current.innerHTML = '';
-            canvasRef.current.appendChild(renderer.domElement);
+
+            // Center the renderer in the container
+            const rendererElement = renderer.domElement;
+            if (isMobile) {
+                rendererElement.style.margin = '0 auto'; // Center horizontally
+            }
+
+            canvasRef.current.appendChild(rendererElement);
             rendererRef.current = renderer;
             return renderer;
         };
@@ -242,7 +269,11 @@ const TerrainShader = ({ onHoverData }) => {
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
             controls.minDistance = MIN_CAMERA_DISTANCE;
-            controls.maxDistance = MAX_CAMERA_DISTANCE;
+
+            // Set different max distance for mobile
+            const isMobile = isMobileDevice();
+            controls.maxDistance = isMobile ? MOBILE_MAX_CAMERA_DISTANCE : MAX_CAMERA_DISTANCE;
+
             controls.maxPolarAngle = Math.PI / 2;
             controls.target.set(0, -HEIGHT_SCALE / 3, 0);
             controls.update();
@@ -318,12 +349,6 @@ const TerrainShader = ({ onHoverData }) => {
             }
         };
 
-        // Helper function to detect mobile devices
-        const isMobileDevice = () => {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-        };
-
         renderer.domElement.addEventListener('pointermove', onPointerMove);
         renderer.domElement.addEventListener('pointerdown', onPointerDown);
         renderer.domElement.addEventListener('pointerup', onPointerUp);
@@ -373,9 +398,17 @@ const TerrainShader = ({ onHoverData }) => {
         // Handle window resize
         const handleResize = () => {
             const newWidth = canvasRef.current.clientWidth;
-            camera.aspect = newWidth / CANVAS_HEIGHT;
+            const isMobile = isMobileDevice();
+            const renderWidth = isMobile ? newWidth * 0.85 : newWidth;
+
+            camera.aspect = renderWidth / CANVAS_HEIGHT;
             camera.updateProjectionMatrix();
-            renderer.setSize(newWidth, CANVAS_HEIGHT);
+            renderer.setSize(renderWidth, CANVAS_HEIGHT);
+
+            // Center the renderer in the container
+            if (isMobile) {
+                renderer.domElement.style.margin = '0 auto';
+            }
         };
 
         window.addEventListener('resize', handleResize);
@@ -410,7 +443,7 @@ const TerrainShader = ({ onHoverData }) => {
     return (
         <div
             ref={canvasRef}
-            className="w-full h-[550px] rounded-lg overflow-hidden"
+            className="w-full h-[550px] rounded-lg overflow-hidden flex justify-center"
         />
     );
 };
