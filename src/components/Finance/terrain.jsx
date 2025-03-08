@@ -30,6 +30,8 @@ const TerrainShader = ({ onHoverData }) => {
         month: 6,
         rawHeight: "50.0"
     });
+    const controlsRef = useRef(null); // Add ref for controls
+    const interactingWithTerrainRef = useRef(false); // Track if user is interacting with terrain
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -244,6 +246,7 @@ const TerrainShader = ({ onHoverData }) => {
             controls.maxPolarAngle = Math.PI / 2;
             controls.target.set(0, -HEIGHT_SCALE / 3, 0);
             controls.update();
+            controlsRef.current = controls; // Store controls in ref
             return controls;
         };
 
@@ -267,14 +270,65 @@ const TerrainShader = ({ onHoverData }) => {
         // Setup controls
         const controls = setupControls(camera, renderer);
 
-        // Mouse movement handler
+        // Function to check if terrain was hit
+        const checkTerrainIntersection = () => {
+            raycasterRef.current.setFromCamera(pointerRef.current, camera);
+            const intersects = raycasterRef.current.intersectObject(terrain);
+            return intersects.length > 0;
+        };
+
+        // Mouse/touch movement handler
         const onPointerMove = (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
             pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // On pointer move, if already interacting with terrain, keep rotation disabled
+            if (interactingWithTerrainRef.current) {
+                // We don't need to check again - keep rotation disabled
+                return;
+            }
+        };
+
+        // Add touch/pointer down event
+        const onPointerDown = (event) => {
+            // Update pointer position
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Check if the ray hits the terrain
+            const terrainHit = checkTerrainIntersection();
+
+            // If ray hits terrain, disable rotation on mobile
+            if (terrainHit && isMobileDevice()) {
+                interactingWithTerrainRef.current = true;
+                if (controlsRef.current) {
+                    controlsRef.current.enableRotate = false;
+                }
+            }
+        };
+
+        // Add touch/pointer up event
+        const onPointerUp = () => {
+            // Re-enable rotation when pointer is released
+            if (interactingWithTerrainRef.current && controlsRef.current) {
+                interactingWithTerrainRef.current = false;
+                controlsRef.current.enableRotate = true;
+            }
+        };
+
+        // Helper function to detect mobile devices
+        const isMobileDevice = () => {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
         };
 
         renderer.domElement.addEventListener('pointermove', onPointerMove);
+        renderer.domElement.addEventListener('pointerdown', onPointerDown);
+        renderer.domElement.addEventListener('pointerup', onPointerUp);
+        renderer.domElement.addEventListener('pointercancel', onPointerUp);
+        renderer.domElement.addEventListener('pointerleave', onPointerUp);
 
         // Animation loop
         const animate = () => {
@@ -330,6 +384,10 @@ const TerrainShader = ({ onHoverData }) => {
         return () => {
             window.removeEventListener('resize', handleResize);
             renderer.domElement.removeEventListener('pointermove', onPointerMove);
+            renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+            renderer.domElement.removeEventListener('pointerup', onPointerUp);
+            renderer.domElement.removeEventListener('pointercancel', onPointerUp);
+            renderer.domElement.removeEventListener('pointerleave', onPointerUp);
             controls.dispose();
             renderer.dispose();
             geometry.dispose();
