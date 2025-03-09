@@ -27,10 +27,10 @@ export default function FinanceCard({ defaultModelIndex = 0 }) {
     const [hoverData, setHoverData] = useState(null);
 
     return (
-        <Card className="bg-gradient-to-b from-brown-500 to-brown-100 w-auto mx-auto">
+        <Card className="bg-gradient-to-b from-gray-800 to-gray-600 w-auto mx-auto">
             <CardHeader
                 floated={false}
-                className="relative h-auto py-4"
+                className="relative h-auto py-4 bg-slate-50"
             >
                 <div className="flex items-center justify-between px-4">
                     <div className="flex flex-col gap-1">
