@@ -1,4 +1,4 @@
-import { people01, people02, people03, facebook, instagram, linkedin, twitter, airbnb, binance, coinbase, dropbox, send, shield, star  } from "../assets";
+import { people01, people02, people03, facebook, instagram, linkedin, twitter, airbnb, binance, coinbase, dropbox, send, shield, star } from "../assets";
 
 export const navLinks = [
   {
@@ -23,23 +23,23 @@ export const features = [
   {
     id: "feature-1",
     icon: star,
-    title: "Rewards",
+    title: "Dimensional Insights",
     content:
-      "The best credit cards offer some tantalizing combinations of promotions and prizes",
+      "Transform flat spreadsheets into dynamic 3D landscapes that reveal hidden patterns and relationships invisible in traditional 2D visualizations.",
   },
   {
     id: "feature-2",
     icon: shield,
-    title: "100% Secured",
+    title: "Spatial Data Correlation",
     content:
-      "We take proactive steps make sure your information and transactions are secure.",
+      "Explore complex financial ecosystems through immersive 3D models that allow you to navigate, rotate, and dive deep into multidimensional data points.",
   },
   {
     id: "feature-3",
     icon: send,
-    title: "Balance Transfer",
+    title: "Interactive Financial Visualization",
     content:
-      "A balance transfer credit card can save you a lot of money in interest charges.",
+      "Unlock new perspectives with intuitive 3D interfaces that turn abstract numbers into tangible, explorable financial landscapes.",
   },
 ];
 

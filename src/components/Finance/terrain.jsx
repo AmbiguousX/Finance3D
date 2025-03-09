@@ -1,22 +1,21 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js';
 
-
-const TerrainShader = ({ onHoverData }) => {
+const TerrainShader = ({ onHoverData, symbol = "AAPL", basePrice = 170 }) => {
     // Constants
     const HEIGHT_SCALE = 15;
     const GRID_SIZE = 128;
     const CANVAS_HEIGHT = 550;
     const MIN_CAMERA_DISTANCE = 30;
-    const MAX_CAMERA_DISTANCE = 150; // Increased max zoom out
+    const MAX_CAMERA_DISTANCE = 150;
     const INITIAL_CAMERA_DISTANCE = 50;
     const INITIAL_CAMERA_ELEVATION = 45;
 
     // Mobile specific constants
-    const MOBILE_MAX_CAMERA_DISTANCE = 180; // Even more zoom out for mobile
-    const MOBILE_INITIAL_CAMERA_DISTANCE = 100; // Start more zoomed out on mobile
+    const MOBILE_MAX_CAMERA_DISTANCE = 180;
+    const MOBILE_INITIAL_CAMERA_DISTANCE = 100;
 
     // Refs
     const canvasRef = useRef(null);
@@ -28,27 +27,39 @@ const TerrainShader = ({ onHoverData }) => {
     const pointerRef = useRef(new THREE.Vector2());
     const helperRef = useRef(null);
     const minMaxRef = useRef({ min: Infinity, max: -Infinity });
+    const controlsRef = useRef(null);
+    const interactingWithTerrainRef = useRef(false);
+
+    // Terrain seed state
+    const [terrainSeed, setTerrainSeed] = useState(null);
+
+    // Last hover data ref
     const lastHitRef = useRef({
         day: 15,
-        price: "175.00",
+        price: basePrice.toFixed(2),
         month: 6,
         rawHeight: "50.0"
     });
-    const controlsRef = useRef(null); // Add ref for controls
-    const interactingWithTerrainRef = useRef(false); // Track if user is interacting with terrain
 
-    // Helper function to detect mobile devices - defined at the component level
+    // Mobile detection
     const isMobileDevice = () => {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
             (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
     };
 
     useEffect(() => {
-        if (!canvasRef.current) return;
+        // Generate seed only once when symbol first changes
+        if (terrainSeed === null) {
+            const newSeed = Date.now() % 1000 + symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            setTerrainSeed(newSeed);
+        }
+
+        if (!canvasRef.current || terrainSeed === null) return;
 
         // Initialize with default data
         onHoverData?.(lastHitRef.current);
 
+        // Helper function for creating axis labels (existing implementation)
         const createAxisLabel = (text, position, color = 'white') => {
             const canvas = document.createElement('canvas');
             canvas.width = 256;
@@ -68,10 +79,10 @@ const TerrainShader = ({ onHoverData }) => {
             return sprite;
         };
 
+        // Add axes function (existing implementation)
         const addAxes = (scene) => {
-            // Calculate the actual price values
-            const lowPrice = 100; // Since we calculate price as: 100 + (normalizedHeight * 150)
-            const highPrice = 250; // When height is 1, price is 100 + (1 * 150)
+            const lowPrice = basePrice;
+            const highPrice = basePrice * 1.5;
 
             // Days axis (X)
             const daysLine = new THREE.Line(
@@ -106,19 +117,17 @@ const TerrainShader = ({ onHoverData }) => {
             scene.add(priceLine);
             scene.add(createAxisLabel('Price', new THREE.Vector3(-30, HEIGHT_SCALE / 2, 25)));
 
-            // Add price labels at top and bottom
-            scene.add(createAxisLabel('$' + highPrice, new THREE.Vector3(-30, HEIGHT_SCALE, 25), 'lightgray'));
-            scene.add(createAxisLabel('$' + lowPrice, new THREE.Vector3(-30, 0, 25), 'lightgray'));
+            // Add price labels
+            scene.add(createAxisLabel('$' + highPrice.toFixed(0), new THREE.Vector3(-30, HEIGHT_SCALE, 25), 'lightgray'));
+            scene.add(createAxisLabel('$' + lowPrice.toFixed(0), new THREE.Vector3(-30, 0, 25), 'lightgray'));
 
             // Add tick marks and values
             for (let i = 0; i <= 4; i++) {
-                // Days ticks
                 const dayPos = -25 + (i * 12.5);
                 const dayValue = Math.round(i * 7.75);
                 scene.add(createAxisLabel(dayValue.toString(),
                     new THREE.Vector3(dayPos, -2, 25), 'lightgray'));
 
-                // Months ticks
                 const monthPos = 25 - (i * 12.5);
                 const monthValue = Math.round(i * 3);
                 scene.add(createAxisLabel(monthValue.toString(),
@@ -126,6 +135,7 @@ const TerrainShader = ({ onHoverData }) => {
             }
         };
 
+        // Scene setup functions (existing implementation)
         const setupScene = () => {
             const scene = new THREE.Scene();
             sceneRef.current = scene;
@@ -134,8 +144,6 @@ const TerrainShader = ({ onHoverData }) => {
 
         const setupCamera = (width) => {
             const camera = new THREE.PerspectiveCamera(45, width / CANVAS_HEIGHT, 0.1, 1000);
-
-            // Set different initial camera distance for mobile
             const isMobile = isMobileDevice();
             const initialDistance = isMobile ? MOBILE_INITIAL_CAMERA_DISTANCE : INITIAL_CAMERA_DISTANCE;
 
@@ -155,17 +163,15 @@ const TerrainShader = ({ onHoverData }) => {
                 alpha: true
             });
 
-            // Adjust width for mobile devices to 85% of container width
             const isMobile = isMobileDevice();
             const renderWidth = isMobile ? width * 0.85 : width;
 
             renderer.setSize(renderWidth, CANVAS_HEIGHT);
             canvasRef.current.innerHTML = '';
 
-            // Center the renderer in the container
             const rendererElement = renderer.domElement;
             if (isMobile) {
-                rendererElement.style.margin = '0 auto'; // Center horizontally
+                rendererElement.style.margin = '0 auto';
             }
 
             canvasRef.current.appendChild(rendererElement);
@@ -194,9 +200,11 @@ const TerrainShader = ({ onHoverData }) => {
             geometry.rotateX(-Math.PI / 2);
             const vertices = geometry.attributes.position.array;
             const perlin = new ImprovedNoise();
-            const z = Math.random() * 100;
 
-            // First pass: generate raw heights and find min/max
+            const z = terrainSeed % 1000;
+
+            minMaxRef.current = { min: Infinity, max: -Infinity };
+
             const rawHeights = [];
             for (let i = 0; i < vertices.length; i += 3) {
                 const x = (i % ((GRID_SIZE + 1) * 3)) / 3;
@@ -224,7 +232,6 @@ const TerrainShader = ({ onHoverData }) => {
                 minMaxRef.current.max = Math.max(minMaxRef.current.max, elevation);
             }
 
-            // Second pass: normalize heights
             for (let i = 0, j = 0; i < vertices.length; i += 3, j++) {
                 const normalizedHeight = (rawHeights[j] - minMaxRef.current.min) /
                     (minMaxRef.current.max - minMaxRef.current.min);
@@ -270,14 +277,13 @@ const TerrainShader = ({ onHoverData }) => {
             controls.dampingFactor = 0.05;
             controls.minDistance = MIN_CAMERA_DISTANCE;
 
-            // Set different max distance for mobile
             const isMobile = isMobileDevice();
             controls.maxDistance = isMobile ? MOBILE_MAX_CAMERA_DISTANCE : MAX_CAMERA_DISTANCE;
 
             controls.maxPolarAngle = Math.PI / 2;
             controls.target.set(0, -HEIGHT_SCALE / 3, 0);
             controls.update();
-            controlsRef.current = controls; // Store controls in ref
+            controlsRef.current = controls;
             return controls;
         };
 
@@ -301,37 +307,30 @@ const TerrainShader = ({ onHoverData }) => {
         // Setup controls
         const controls = setupControls(camera, renderer);
 
-        // Function to check if terrain was hit
+        // Interaction handlers (existing implementation)
         const checkTerrainIntersection = () => {
             raycasterRef.current.setFromCamera(pointerRef.current, camera);
             const intersects = raycasterRef.current.intersectObject(terrain);
             return intersects.length > 0;
         };
 
-        // Mouse/touch movement handler
         const onPointerMove = (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
             pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-            // On pointer move, if already interacting with terrain, keep rotation disabled
             if (interactingWithTerrainRef.current) {
-                // We don't need to check again - keep rotation disabled
                 return;
             }
         };
 
-        // Add touch/pointer down event
         const onPointerDown = (event) => {
-            // Update pointer position
             const rect = renderer.domElement.getBoundingClientRect();
             pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-            // Check if the ray hits the terrain
             const terrainHit = checkTerrainIntersection();
 
-            // If ray hits terrain, disable rotation on mobile
             if (terrainHit && isMobileDevice()) {
                 interactingWithTerrainRef.current = true;
                 if (controlsRef.current) {
@@ -340,9 +339,7 @@ const TerrainShader = ({ onHoverData }) => {
             }
         };
 
-        // Add touch/pointer up event
         const onPointerUp = () => {
-            // Re-enable rotation when pointer is released
             if (interactingWithTerrainRef.current && controlsRef.current) {
                 interactingWithTerrainRef.current = false;
                 controlsRef.current.enableRotate = true;
@@ -369,7 +366,8 @@ const TerrainShader = ({ onHoverData }) => {
                 helper.position.copy(point);
 
                 const normalizedHeight = point.y / HEIGHT_SCALE;
-                const price = 100 + (normalizedHeight * 150);
+                const priceRange = basePrice * 0.5;
+                const price = basePrice + (normalizedHeight * priceRange);
 
                 const normalizedX = (point.x + 25) / 50;
                 const day = (normalizedX * 31).toFixed(1);
@@ -405,7 +403,6 @@ const TerrainShader = ({ onHoverData }) => {
             camera.updateProjectionMatrix();
             renderer.setSize(renderWidth, CANVAS_HEIGHT);
 
-            // Center the renderer in the container
             if (isMobile) {
                 renderer.domElement.style.margin = '0 auto';
             }
@@ -421,24 +418,49 @@ const TerrainShader = ({ onHoverData }) => {
             renderer.domElement.removeEventListener('pointerup', onPointerUp);
             renderer.domElement.removeEventListener('pointercancel', onPointerUp);
             renderer.domElement.removeEventListener('pointerleave', onPointerUp);
-            controls.dispose();
-            renderer.dispose();
-            geometry.dispose();
-            shaderMaterial.dispose();
-            geometryHelper.dispose();
-            scene.children.forEach(child => {
-                if (child.material) {
-                    if (child.material.map) {
-                        child.material.map.dispose();
+
+            if (controlsRef.current) {
+                controlsRef.current.dispose();
+            }
+
+            if (sceneRef.current) {
+                while (sceneRef.current.children.length > 0) {
+                    const object = sceneRef.current.children[0];
+                    sceneRef.current.remove(object);
+
+                    if (object.geometry) {
+                        object.geometry.dispose();
                     }
-                    child.material.dispose();
+
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(material => material.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
+
+                        if (object.material.map) {
+                            object.material.map.dispose();
+                        }
+                    }
                 }
-                if (child.geometry) {
-                    child.geometry.dispose();
+            }
+
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+
+                try {
+                    const gl = rendererRef.current.getContext();
+                    const loseContextExt = gl.getExtension('WEBGL_lose_context');
+                    if (loseContextExt) {
+                        loseContextExt.loseContext();
+                    }
+                } catch (error) {
+                    console.warn('Could not lose WebGL context:', error);
                 }
-            });
+            }
         };
-    }, [onHoverData]);
+    }, [onHoverData, symbol, basePrice, terrainSeed]);
 
     return (
         <div
