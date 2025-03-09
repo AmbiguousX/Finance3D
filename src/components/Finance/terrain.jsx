@@ -16,7 +16,7 @@ const TerrainShader = ({ onHoverData }) => {
 
     // Mobile specific constants
     const MOBILE_MAX_CAMERA_DISTANCE = 180; // Even more zoom out for mobile
-    const MOBILE_INITIAL_CAMERA_DISTANCE = 80; // Start more zoomed out on mobile
+    const MOBILE_INITIAL_CAMERA_DISTANCE = 100; // Start more zoomed out on mobile
 
     // Refs
     const canvasRef = useRef(null);
