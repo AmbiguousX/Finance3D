@@ -15,30 +15,61 @@ import {
     NumberRange
 } from 'scichart';
 
-const FinanceChart = ({
-    ticker = 'AAPL',
-    year = 2024,
+// Predefined time frames
+const TIME_FRAMES = [
+    { label: '1 Month', days: 30 },
+    { label: '3 Months', days: 90 },
+    { label: '6 Months', days: 180 },
+    { label: '1 Year', days: 365 },
+    { label: 'YTD', days: 'ytd' },
+    { label: 'All Time', days: 'all' }
+];
+
+const StockCandlestickChart = ({
+    ticker = 'F',
     width = "100%",
     height = "600px"
 }) => {
     const chartRef = useRef(null);
     const [stockData, setStockData] = useState(null);
+    const [timeFrame, setTimeFrame] = useState('6 Months');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Fetch stock data
     useEffect(() => {
-        const fetchYearlyStockData = async () => {
+        const fetchStockData = async () => {
             setIsLoading(true);
             setError(null);
 
             const API_KEY = import.meta.env.VITE_POLYGON_API_KEY;
 
             try {
-                const startDate = `${year}-01-01`;
-                const endDate = `${year}-12-31`;
+                // Determine date range based on selected time frame
+                const now = new Date();
+                let startDate, endDate;
+
+                if (timeFrame === 'YTD') {
+                    startDate = new Date(now.getFullYear(), 0, 1);
+                    endDate = now;
+                } else if (timeFrame === 'All Time') {
+                    // Fetch data for the last 10 years
+                    startDate = new Date(now.getFullYear() - 10, 0, 1);
+                    endDate = now;
+                } else {
+                    // Find the selected time frame
+                    const selectedFrame = TIME_FRAMES.find(frame => frame.label === timeFrame);
+                    startDate = new Date(now);
+                    startDate.setDate(now.getDate() - selectedFrame.days);
+                    endDate = now;
+                }
+
+                // Format dates for API
+                const formatDate = (date) =>
+                    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
                 const response = await fetch(
-                    `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?apiKey=${API_KEY}`,
+                    `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${formatDate(startDate)}/${formatDate(endDate)}?apiKey=${API_KEY}`,
                     {
                         method: 'GET',
                         headers: {
@@ -69,9 +100,10 @@ const FinanceChart = ({
             }
         };
 
-        fetchYearlyStockData();
-    }, [ticker, year]);
+        fetchStockData();
+    }, [ticker, timeFrame]);
 
+    // Chart initialization
     useEffect(() => {
         // Ensure we have a chart ref and stock data
         if (!stockData || stockData.length === 0 || !chartRef.current) {
@@ -82,18 +114,8 @@ const FinanceChart = ({
 
         const initializeChart = async () => {
             try {
-                // Filter and sort data to ensure we're only getting the specified year
-                const filteredData = stockData.filter(day => {
-                    const date = new Date(day.t);
-                    return date.getFullYear() === year;
-                });
-
-                if (filteredData.length === 0) {
-                    throw new Error(`No data available for ${ticker} in ${year}`);
-                }
-
                 // Compute price ranges
-                const prices = filteredData.flatMap(day => [day.o, day.h, day.l, day.c]);
+                const prices = stockData.flatMap(day => [day.o, day.h, day.l, day.c]);
                 const minPrice = Math.min(...prices);
                 const maxPrice = Math.max(...prices);
 
@@ -104,17 +126,27 @@ const FinanceChart = ({
                 // Configure X-Axis (DateTime)
                 const xAxis = new DateTimeNumericAxis(wasmContext, {
                     visibleRange: new NumberRange(
-                        filteredData[0].t,
-                        filteredData[filteredData.length - 1].t
+                        stockData[0].t,
+                        stockData[stockData.length - 1].t
                     )
                 });
 
                 // Modify x-axis label formatting
                 xAxis.labelProvider.formatLabel = (unixTimestamp) => {
-                    const date = new Date(unixTimestamp);
+                    // Ensure the timestamp is converted to a number
+                    const timestamp = Number(unixTimestamp);
+
+                    // Find the closest data point to this timestamp
+                    const closestDataPoint = stockData.reduce((prev, curr) =>
+                        Math.abs(curr.t - timestamp) < Math.abs(prev.t - timestamp) ? curr : prev
+                    );
+
+                    // Format the date of the closest data point
+                    const date = new Date(closestDataPoint.t);
                     return date.toLocaleDateString('en-US', {
                         month: 'short',
-                        day: 'numeric'
+                        day: 'numeric',
+                        year: 'numeric'
                     });
                 };
                 sciChartSurface.xAxes.add(xAxis);
@@ -134,8 +166,8 @@ const FinanceChart = ({
                     dataSeriesName: `${ticker} Candlestick`
                 });
 
-                // Populate data series with filtered stock data
-                filteredData.forEach(day => {
+                // Populate data series with stock data
+                stockData.forEach(day => {
                     candleDataSeries.append(
                         day.t,   // timestamp
                         day.o,   // open
@@ -177,7 +209,7 @@ const FinanceChart = ({
                     })
                 );
 
-                // Add interactivity modifiers with custom tooltip
+                // Add interactivity modifiers
                 sciChartSurface.chartModifiers.add(
                     new ZoomExtentsModifier(),
                     new ZoomPanModifier(),
@@ -188,37 +220,7 @@ const FinanceChart = ({
                         tooltipContainerBackground: "#222",
                         tooltipTextColor: "white",
                         showTooltip: true,
-                        showAxisLabels: true,
-                        tooltipDataTemplate: (seriesData) => {
-                            if (!seriesData || seriesData.length === 0) return "No data";
-
-                            // Find the OHLC series data point
-                            const ohlcData = seriesData.find(series =>
-                                series.dataSeries &&
-                                series.dataSeries.dataSeriesName &&
-                                series.dataSeries.dataSeriesName.includes("Candlestick")
-                            );
-
-                            if (!ohlcData) return "No OHLC data";
-
-                            const dataPoint = ohlcData.dataPoint;
-                            const date = new Date(dataPoint.xValue);
-
-                            return `
-                                <div style="color: white; font-family: Arial, sans-serif;">
-                                    <strong>${date.toLocaleDateString('en-US', {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            })}</strong><br>
-                                    Open: $${dataPoint.open ? dataPoint.open.toFixed(2) : 'N/A'}<br>
-                                    High: $${dataPoint.high ? dataPoint.high.toFixed(2) : 'N/A'}<br>
-                                    Low: $${dataPoint.low ? dataPoint.low.toFixed(2) : 'N/A'}<br>
-                                    Close: $${dataPoint.close ? dataPoint.close.toFixed(2) : 'N/A'}
-                                </div>
-                            `;
-                        }
+                        showAxisLabels: true
                     })
                 );
 
@@ -245,14 +247,52 @@ const FinanceChart = ({
                 }
             }
         };
-    }, [stockData, ticker, year]);
+    }, [stockData, ticker]);
 
     return (
-        <div style={{ position: 'relative', width, height }}>
+        <div style={{
+            position: 'relative',
+            width,
+            height,
+            display: 'flex',
+            flexDirection: 'column'
+        }}>
+            {/* Time frame selector */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                padding: '10px',
+                backgroundColor: '#f0f0f0'
+            }}>
+                {TIME_FRAMES.map((frame) => (
+                    <button
+                        key={frame.label}
+                        onClick={() => setTimeFrame(frame.label)}
+                        style={{
+                            margin: '0 5px',
+                            padding: '5px 10px',
+                            backgroundColor: timeFrame === frame.label ? '#4CAF50' : 'white',
+                            color: timeFrame === frame.label ? 'white' : 'black',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {frame.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Chart container */}
             <div
                 ref={chartRef}
-                style={{ width: '100%', height: '100%' }}
+                style={{
+                    width: '100%',
+                    height: 'calc(100% - 50px)'
+                }}
             />
+
+            {/* Loading and Error States */}
             {isLoading && (
                 <div style={{
                     position: 'absolute',
@@ -288,4 +328,4 @@ const FinanceChart = ({
     );
 };
 
-export default FinanceChart;
+export default StockCandlestickChart;
