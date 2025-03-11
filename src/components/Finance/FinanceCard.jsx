@@ -9,7 +9,7 @@ import {
 } from "@material-tailwind/react";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import TerrainShader from "./terrain";
-import SciChartDemo from "../Chart";
+import StockCandlestickChart from "./CandlestickChart";
 
 const models = [
     {
@@ -147,7 +147,7 @@ export default function FinanceCard({ defaultModelIndex = 0 }) {
             </CardHeader>
 
             <CardBody className="p-0 h-[550px]">
-                <SciChartDemo
+                <StockCandlestickChart
                 />
             </CardBody>
 
