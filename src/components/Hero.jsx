@@ -2,6 +2,8 @@ import styles from "../style";
 import { discount } from "../assets";
 import GetStarted from "./GetStarted";
 import FinanceCard from "./Finance/FinanceCard";
+import FinanceChart from "./Chart";
+import StockDataFetcher from "./Finance/ApiTest";
 
 const Hero = () => {
   return (
@@ -36,7 +38,7 @@ const Hero = () => {
       <div className={`flex-1 flex ${styles.flexCenter} md:my-0 my-10 relative`}>
         {/* Replaced robot image with FinanceCard component */}
         <div className="w-[100%] h-[100%] relative z-[5]">
-          <FinanceCard />
+          <FinanceChart />
         </div>
 
         {/* gradient start */}
