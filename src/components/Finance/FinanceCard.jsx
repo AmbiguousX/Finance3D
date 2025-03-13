@@ -28,8 +28,8 @@ const models = [
         basePrice: 140
     },
     {
-        modelName: "Amazon Stock",
-        symbol: "AMZN",
+        modelName: "NVIDIA Stock",
+        symbol: "NVDA",
         basePrice: 130
     }
 ];
@@ -146,8 +146,12 @@ export default function FinanceCard({ defaultModelIndex = 0 }) {
                 </div>
             </CardHeader>
 
-            <CardBody className="p-0 h-[550px]">
-                <StockCandlestickChart
+            <CardBody >
+                <TerrainShader
+                    key={terrainKey}  // Ensure component reinitializes when changing stocks
+                    symbol={symbol}
+                    basePrice={basePrice}
+                    onHoverData={setHoverData}  // Pass the setter as the onHoverData prop
                 />
             </CardBody>
 

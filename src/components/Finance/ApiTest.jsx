@@ -8,7 +8,7 @@ import {
     Typography
 } from "@material-tailwind/react";
 
-const StockGridVisualizer = ({ ticker = 'F', year = 2024 }) => {
+const StockGridVisualizer = ({ ticker = 'AAPL', year = 2020 }) => {
     const [gridData, setGridData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -35,7 +35,7 @@ const StockGridVisualizer = ({ ticker = 'F', year = 2024 }) => {
             const endDate = `${year}-12-31`;
 
             const response = await fetch(
-                `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?apiKey=${API_KEY}`,
+                `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?adjusted=true&apiKey=${API_KEY}`,
                 {
                     method: 'GET',
                     headers: {
